@@ -93,6 +93,20 @@ Try these example queries to get started:
 docker-compose down
 ```
 
+## Tools & Technologies Used
+
+- Go (Golang as the backend codebase)
+- PostgreSQL (Database to store configurations and user data)
+- Docker (Containerization)
+- OpenAI API (Natural Language Processing & Insights Generation)
+- React using [Vite](https://vite.dev/) (Frontend UI)
+
+## Technical Diagram
+
+![Smart Insights Architecture](diagram.png)
+
+Link: [ExcaliDraw](https://excalidraw.com/#json=WCHBVRafCIcL6iHFs0kna,Rdy7TOtJB-jNCcCSPB2KTw)
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
