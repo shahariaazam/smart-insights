@@ -1,0 +1,420 @@
+openapi: 3.0.0
+info:
+  title: SmartInsights API
+  description: API for SmartInsights - A natural language interface to database insights.
+  version: '1.0.0'
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+components:
+  schemas:
+    DatabaseConfig:
+      type: object
+      required:
+        - name
+        - type
+        - host
+        - port
+        - db_name
+        - username
+        - password
+      properties:
+        name:
+          type: string
+          description: Unique identifier for the configuration
+        type:
+          type: string
+          enum: [ postgresql, mysql, mongodb ]
+          description: Type of database
+        host:
+          type: string
+          description: Database host address
+        port:
+          type: string
+          description: Database port number
+        db_name:
+          type: string
+          description: Name of the database
+        username:
+          type: string
+          description: Database username
+        password:
+          type: string
+          format: password
+          description: Database password
+        options:
+          type: object
+          oneOf:
+            - $ref: '#/components/schemas/PostgresOptions'
+            - $ref: '#/components/schemas/MySQLOptions'
+            - $ref: '#/components/schemas/MongoDBOptions'
+
+    PostgresOptions:
+      type: object
+      properties:
+        ssl_mode:
+          type: string
+          enum: [ disable, allow, prefer, require, verify-ca, verify-full ]
+        schema:
+          type: string
+
+    MySQLOptions:
+      type: object
+      properties:
+        charset:
+          type: string
+        collation:
+          type: string
+
+    MongoDBOptions:
+      type: object
+      properties:
+        auth_db:
+          type: string
+        replica_set:
+          type: string
+        auth_mechanism:
+          type: string
+        direct_connection:
+          type: boolean
+        write_concern:
+          type: string
+
+    LLMConfig:
+      type: object
+      required:
+        - name
+        - type
+        - api_key
+        - model
+      properties:
+        name:
+          type: string
+          description: Unique identifier for the configuration
+        type:
+          type: string
+          enum: [ openai, anthropic, gemini, bedrock ]
+          description: LLM provider type
+        api_key:
+          type: string
+          format: password
+          description: Provider API key
+        model:
+          type: string
+          description: Model name/identifier
+        options:
+          type: object
+          oneOf:
+            - $ref: '#/components/schemas/OpenAIOptions'
+            - $ref: '#/components/schemas/AnthropicOptions'
+            - $ref: '#/components/schemas/GeminiOptions'
+            - $ref: '#/components/schemas/BedrockOptions'
+
+    OpenAIOptions:
+      type: object
+      properties:
+        organization:
+          type: string
+        max_tokens:
+          type: integer
+
+    AnthropicOptions:
+      type: object
+      properties:
+        max_tokens_to_sample:
+          type: integer
+        temperature:
+          type: number
+        top_k:
+          type: integer
+
+    GeminiOptions:
+      type: object
+      properties:
+        location:
+          type: string
+        temperature:
+          type: number
+        max_output_tokens:
+          type: integer
+
+    BedrockOptions:
+      type: object
+      properties:
+        region:
+          type: string
+        model_provider:
+          type: string
+
+    AssistantRequest:
+      type: object
+      required:
+        - db_configuration_name
+        - question
+      properties:
+        db_configuration_name:
+          type: string
+          description: Name of the database configuration to use
+        question:
+          type: string
+          description: Natural language question to ask about the data
+        options:
+          type: object
+          additionalProperties: true
+          description: Additional options for the request
+
+    Update:
+      type: object
+      properties:
+        text:
+          type: string
+          description: Update message content
+        timestamp:
+          type: string
+          format: date-time
+          description: Time when the update was generated
+        type:
+          type: string
+          enum: [ final_response, step_output, debug_log ]
+          description: Type of update message
+
+    AssistantResponse:
+      type: object
+      properties:
+        uuid:
+          type: string
+          description: Unique identifier for the response
+        question:
+          type: string
+          description: Original question asked
+        success:
+          type: boolean
+          description: Whether the request was successful
+        status:
+          type: string
+          enum: [ in_progress, completed, failed ]
+          description: Current status of the request
+        response:
+          type: array
+          items:
+            $ref: '#/components/schemas/Update'
+          description: List of updates and responses
+
+  responses:
+    Error:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                description: Error message
+
+paths:
+  /ping:
+    get:
+      summary: Health check endpoint
+      description: Returns the API health status
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+
+  /databases:
+    post:
+      summary: Create a new database configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DatabaseConfig'
+      responses:
+        '201':
+          description: Configuration created successfully
+        '400':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+
+    get:
+      summary: Get all database configurations
+      responses:
+        '200':
+          description: List of all database configurations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DatabaseConfig'
+
+  /databases/{name}:
+    parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Name of the database configuration
+
+    get:
+      summary: Get a specific database configuration
+      responses:
+        '200':
+          description: Database configuration details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatabaseConfig'
+        '404':
+          $ref: '#/components/responses/Error'
+
+    delete:
+      summary: Delete a database configuration
+      responses:
+        '200':
+          description: Configuration deleted successfully
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /llm:
+    post:
+      summary: Create a new LLM configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LLMConfig'
+      responses:
+        '201':
+          description: Configuration created successfully
+        '400':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+
+    get:
+      summary: Get all LLM configurations
+      responses:
+        '200':
+          description: List of all LLM configurations by provider
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/LLMConfig'
+
+  /llm/{provider}/{name}:
+    parameters:
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+          enum: [ openai, anthropic, gemini, bedrock ]
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+
+    get:
+      summary: Get a specific LLM configuration
+      responses:
+        '200':
+          description: LLM configuration details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LLMConfig'
+        '404':
+          $ref: '#/components/responses/Error'
+
+    delete:
+      summary: Delete a LLM configuration
+      responses:
+        '200':
+          description: Configuration deleted successfully
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /assistant/ask:
+    post:
+      summary: Ask a question about the data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssistantRequest'
+      responses:
+        '201':
+          description: Question processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistantResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+
+  /assistant/ask/{uuid}:
+    parameters:
+      - name: uuid
+        in: path
+        required: true
+        schema:
+          type: string
+        description: UUID of the assistant response
+
+    get:
+      summary: Get the response for a specific question
+      responses:
+        '200':
+          description: Assistant response details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistantResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /assistant/histories:
+    get:
+      summary: Get all previous questions and responses
+      responses:
+        '200':
+          description: List of all historical interactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AssistantResponse'
+
+  /metrics:
+    get:
+      summary: Get application metrics
+      description: Returns Prometheus metrics for monitoring
+      responses:
+        '200':
+          description: Prometheus metrics data
+          content:
+            text/plain:
+              schema:
+                type: string
